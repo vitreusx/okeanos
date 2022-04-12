@@ -10,22 +10,25 @@ int main(int argc, char **argv) {
   MPI_Comm_size(MPI_COMM_WORLD, &numProcesses);
   MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
 
-  srand(time(NULL));
+  for (size_t s = (size_t)1 << 10; s < ((size_t)1 << 28); s <<= 1) {
+    void *buf = malloc(s);
+    int from = (myRank - 1 + numProcesses) % numProcesses;
+    int next = (myRank + 1) % numProcesses;
 
-  if (myRank == 0) {
-    int rank, data;
-    for (int node = 0; node < numProcesses - 1; ++node) {
-      MPI_Recv((void *)&rank, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG,
-               MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-      MPI_Recv((void *)&data, 1, MPI_INT, rank, MPI_ANY_TAG, MPI_COMM_WORLD,
+    if (myRank == 0) {
+      double startTime = MPI_Wtime();
+      MPI_Send((const void *)buf, s, MPI_BYTE, next, 0, MPI_COMM_WORLD);
+      MPI_Recv(buf, s, MPI_BYTE, from, MPI_ANY_TAG, MPI_COMM_WORLD,
                MPI_STATUS_IGNORE);
-      printf("[node %d] received %d from node #%d\n", myRank, data, rank);
+      double endTime = MPI_WTime();
+
+      double execTime = endTime - startTime;
+      printf("n = %d, s = %d, t = %f\n", numProcesses, s, execTime);
+    } else {
+      MPI_Recv(buf, s, MPI_BYTE, from, MPI_ANY_TAG, MPI_COMM_WORLD,
+               MPI_STATUS_IGNORE);
+      MPI_Send((const void *)buf, s, MPI_BYTE, next, 0, MPI_COMM_WORLD);
     }
-  } else {
-    int data = rand();
-    printf("[node %d] generated %d\n", myRank, data);
-    MPI_Send((const void *)&myRank, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
-    MPI_Send((const void *)&data, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
   }
 
   return 0;
