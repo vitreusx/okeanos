@@ -10,8 +10,8 @@ int main(int argc, char **argv) {
   MPI_Comm_size(MPI_COMM_WORLD, &numProcesses);
   MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
 
-  for (size_t s = (size_t)1 << 10; s < ((size_t)1 << 28); s <<= 1) {
-    void *buf = malloc(s);
+  for (int s = 1 << 10; s < (1 << 28); s <<= 1) {
+    void *buf = malloc((size_t)s);
     int from = (myRank - 1 + numProcesses) % numProcesses;
     int next = (myRank + 1) % numProcesses;
 
