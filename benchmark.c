@@ -1,5 +1,6 @@
 #include <mpi.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 int main(int argc, char **argv) {
   MPI_Init(&argc, &argv);
@@ -8,7 +9,22 @@ int main(int argc, char **argv) {
   MPI_Comm_size(MPI_COMM_WORLD, &numProcesses);
   MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
 
-  printf("numProcesses = %d, myRank = %d\n", numProcesses, myRank);
+  srand(time(NULL));
+
+  if (myRank == 0) {
+    int rank, data;
+    for (int node = 0; node < numProcesses - 1; ++node) {
+      MPI_Recv((void *)&rank, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG,
+               MPI_COMM_WORLD);
+      MPI_Recv((void *)&data, 1, MPI_INT, rank, MPI_ANY_TAG, MPI_COMM_WORLD);
+      printf("[node %d] received %d from node #%d\n", myRank, data, rank);
+    }
+  } else {
+    int data = rand();
+    printf("[node %d] generated %d\n", myRank, data);
+    MPI_Send((const void *)&myRank, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
+    MPI_Send((const void *)&data, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
+  }
 
   return 0;
 }
