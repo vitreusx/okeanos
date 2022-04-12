@@ -20,7 +20,7 @@ int main(int argc, char **argv) {
       MPI_Send((const void *)buf, s, MPI_BYTE, next, 0, MPI_COMM_WORLD);
       MPI_Recv(buf, s, MPI_BYTE, from, MPI_ANY_TAG, MPI_COMM_WORLD,
                MPI_STATUS_IGNORE);
-      double endTime = MPI_WTime();
+      double endTime = MPI_Wtime();
 
       double execTime = endTime - startTime;
       printf("n = %d, s = %d, t = %f\n", numProcesses, s, execTime);
