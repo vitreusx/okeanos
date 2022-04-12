@@ -1,4 +1,3 @@
-#include <iostream>
 #include <mpi.h>
 
 int main(int argc, char **argv) {
@@ -8,8 +7,7 @@ int main(int argc, char **argv) {
   MPI_Comm_size(MPI_COMM_WORLD, &numProcesses);
   MPI_Comm_rank(MPI_COMM_WORLD, &myRank);
 
-  std::cout << "numProcesses = " << numProcesses << "; myRank = " << myRank
-            << std::endl;
+  printf("numProcesses = %d, myRank = %d\n", numProcesses, myRank);
 
-  return EXIT_SUCCESS;
+  return 0;
 }
