@@ -1,2 +1,2 @@
 benchmark: benchmark.c
-	cc -std=c++17 -O2 -o $@ $<
+	cc -O2 -o $@ $<
