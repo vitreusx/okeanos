@@ -16,9 +16,9 @@ int main(int argc, char **argv) {
     int rank, data;
     for (int node = 0; node < numProcesses - 1; ++node) {
       MPI_Recv((void *)&rank, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG,
-               MPI_COMM_WORLD, NULL);
+               MPI_COMM_WORLD, MPI_STATUS_IGNORE);
       MPI_Recv((void *)&data, 1, MPI_INT, rank, MPI_ANY_TAG, MPI_COMM_WORLD,
-               NULL);
+               MPI_STATUS_IGNORE);
       printf("[node %d] received %d from node #%d\n", myRank, data, rank);
     }
   } else {
