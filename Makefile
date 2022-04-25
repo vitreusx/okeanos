@@ -1,2 +1,2 @@
 benchmark: benchmark.c
-	cc -O2 -o $@ $<
+	cc -O2 -lm -o $@ $<
