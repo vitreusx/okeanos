@@ -1,0 +1,8 @@
+#!/usr/bin/bash
+
+for size in 128 256 512 1024 2048 3096; do
+    mpiexec -n 1 ./floyd-warshall-seq.exe ${size}
+    for numProcesses in 1 2 4 8 16; do
+        mpiexec -n ${numProcesses} ./floyd-warshall-par.exe ${size}
+    done
+done

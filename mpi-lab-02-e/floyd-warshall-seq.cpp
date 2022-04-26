@@ -78,9 +78,9 @@ int main(int argc, char *argv[]) {
 
   double endTime = MPI_Wtime();
 
-  std::cerr << "The time required for the Floyd-Warshall algorithm on a "
-            << numVertices << "-node graph with " << 1
-            << " process(es): " << endTime - startTime << std::endl;
+  std::cout << numVertices << " "
+            << "0"
+            << " " << endTime - startTime << '\n';
 
   if (showResults) {
     collectAndPrintGraph(graph, 1 /* numProcesses */, 0 /* myRank */);
