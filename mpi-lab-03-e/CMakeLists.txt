@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
-SET(CMAKE_CXX_COMPILER mpicxx)   # use CC for okeanos
+SET(CMAKE_CXX_COMPILER cc)   # use CC for okeanos
 
 project(mpi_lab_03 CXX)
 
