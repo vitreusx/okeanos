@@ -14,32 +14,32 @@
  * coordinates (i, j). It is assumed that
  * row i belongs to fragment fp.
  */
-#define GP(fp, i, j) ((fp)->data[((i) + (j)) % 2][(i) - (fp)->firstRowIdxIncl + 1][(j) / 2])
+#define GP(fp, i, j)                                                           \
+  ((fp)->data[((i) + (j)) % 2][(i) - (fp)->firstRowIdxIncl + 1][(j) / 2])
 
 #define PRINT_MSG_TAG 543
 
 class InputOptions {
 private:
-    int numPointsPerDimension;
-    bool verbose;
-    int errorCode;
+  int numPointsPerDimension;
+  bool verbose;
+  int errorCode;
 
 public:
-    InputOptions(int numPointsPerDimension, bool verbose, int errorCode) :
-            numPointsPerDimension(numPointsPerDimension),
-            verbose(verbose),
-            errorCode(errorCode) {}
+  InputOptions(int numPointsPerDimension, bool verbose, int errorCode)
+      : numPointsPerDimension(numPointsPerDimension), verbose(verbose),
+        errorCode(errorCode) {}
 
-    int getNumPointsPerDimension();
-    bool isVerbose();
-    int getErrorCode();
+  int getNumPointsPerDimension();
+  bool isVerbose();
+  int getErrorCode();
 };
 
 class Utils {
 public:
-    static double getInitialValue(int i, int j, int numPointsPerDimension);
-    static double getRelaxationFactor(int numPointsPerDimension);
-    static double getToleranceValue(int numPointsPerDimension);
+  static double getInitialValue(int i, int j, int numPointsPerDimension);
+  static double getRelaxationFactor(int numPointsPerDimension);
+  static double getToleranceValue(int numPointsPerDimension);
 };
 
 /**
@@ -49,39 +49,34 @@ public:
  */
 class GridFragment {
 public:
-    double **data[2];
-    double *extraRowForPrinting;
-    int gridDimension;
-    int firstRowIdxIncl;
-    int lastRowIdxExcl;
+  double **data[2];
+  double *extraRowForPrinting;
+  int gridDimension;
+  int firstRowIdxIncl;
+  int lastRowIdxExcl;
 
-    GridFragment(int numPointsPerDimension,
-                 int numProcesses,
-                 int myRank,
-                 bool debug = false);
+  GridFragment(int numPointsPerDimension, int numProcesses, int myRank,
+               bool debug = false);
 
-    /**
-     * Prints the entire grid.
-     * For illustrative purposes, you may
-     * view how this function operates.
-     */
-    void printEntireGrid(int myRank,
-                         int numProcesses);
+  /**
+   * Prints the entire grid.
+   * For illustrative purposes, you may
+   * view how this function operates.
+   */
+  void printEntireGrid(int myRank, int numProcesses);
 
-    /**
-     * Returns the number of points of a given
-     * color in a row with a given index.
-     */
-    int getNumColorPointsInRow(int rowIdx, int color);
+  /**
+   * Returns the number of points of a given
+   * color in a row with a given index.
+   */
+  int getNumColorPointsInRow(int rowIdx, int color);
 
-    void initialize();
-    void free();
+  void initialize();
+  void free();
 
 private:
-    static int getFirstRowIdxOwnedByProcess(int numPointsPerDimension,
-                                            int numProcesses,
-                                            int rank);
+  static int getFirstRowIdxOwnedByProcess(int numPointsPerDimension,
+                                          int numProcesses, int rank);
 };
 
 #endif /* __LAPLACE_COMMON_H__ */
-

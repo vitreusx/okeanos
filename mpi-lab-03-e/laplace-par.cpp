@@ -93,6 +93,26 @@ static std::tuple<int, double> performAlgorithm(int myRank, int numProcesses,
       for (int rowIdx = startRowIncl; rowIdx < endRowExcl; ++rowIdx) {
         for (int colIdx = 1 + (rowIdx % 2 == color ? 1 : 0);
              colIdx < frag->gridDimension - 1; colIdx += 2) {
+          if (rowIdx == startRowIncl) {
+            if (myRank % 2 == 0) {
+              if (myRank + 1 < numProcesses)
+                MPI_Send(&GP(frag, endRowExcl - 1, colIdx), 1, MPI_DOUBLE,
+                         myRank + 1, 0, MPI_COMM_WORLD);
+              if (myRank - 1 >= 0)
+                MPI_Recv(&GP(frag, startRowIncl, colIdx), 1, MPI_DOUBLE,
+                         myRank - 1, MPI_ANY_TAG, MPI_COMM_WORLD,
+                         MPI_STATUS_IGNORE);
+            } else {
+              if (myRank - 1 >= 0)
+                MPI_Recv(&GP(frag, startRowIncl, colIdx), 1, MPI_DOUBLE,
+                         myRank - 1, MPI_ANY_TAG, MPI_COMM_WORLD,
+                         MPI_STATUS_IGNORE);
+              if (myRank + 1 < numProcesses)
+                MPI_Send(&GP(frag, endRowExcl - 1, colIdx), 1, MPI_DOUBLE,
+                         myRank + 1, 0, MPI_COMM_WORLD);
+            }
+          }
+
           double tmp =
               (GP(frag, rowIdx - 1, colIdx) + GP(frag, rowIdx + 1, colIdx) +
                GP(frag, rowIdx, colIdx - 1) + GP(frag, rowIdx, colIdx + 1)) /
@@ -109,6 +129,12 @@ static std::tuple<int, double> performAlgorithm(int myRank, int numProcesses,
     }
 
     ++numIterations;
+
+    for (int rank = 0; rank < numProcesses; ++rank) {
+      double rankMaxDiff = maxDiff;
+      MPI_Bcast(&rankMaxDiff, 1, MPI_DOUBLE, rank, MPI_COMM_WORLD);
+      maxDiff = std::max(maxDiff, rankMaxDiff);
+    }
   } while (maxDiff > epsilon);
 
   /* no code changes beyond this point should be needed */
