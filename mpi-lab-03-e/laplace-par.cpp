@@ -91,31 +91,37 @@ static std::tuple<int, double> performAlgorithm(int myRank, int numProcesses,
     maxDiff = 0.0;
 
     for (int color = 0; color < 2; ++color) {
+      auto *low_extra = frag->data[1 - color][0],
+           *low = frag->data[1 - color][1],
+           *high = frag->data[1 - color][numTotalRows - 2],
+           *high_extra = frag->data[1 - color][numTotalRows - 1];
+      auto low_extra_n =
+               frag->getNumColorPointsInRow(startRowIncl - 1, 1 - color),
+           low_n = frag->getNumColorPointsInRow(startRowIncl, 1 - color),
+           high_n = frag->getNumColorPointsInRow(endRowExcl - 1, 1 - color),
+           high_extra_n = frag->getNumColorPointsInRow(endRowExcl, 1 - color);
+
       if (myRank % 2 == 0) {
         if (myRank - 1 >= 0) {
-          auto *row = frag->data[1 - color][1];
-          auto count =
-              frag->getNumColorPointsInRow(startRowIncl - 1, 1 - color);
-          MPI_Send(row, count, MPI_DOUBLE, myRank - 1, 0, MPI_COMM_WORLD);
+          MPI_Send(low, low_n, MPI_DOUBLE, myRank - 1, 0, MPI_COMM_WORLD);
+          MPI_Recv(low_extra, low_extra_n, MPI_DOUBLE, myRank - 1, MPI_ANY_TAG,
+                   MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
         if (myRank + 1 < numProcesses) {
-          auto *row = frag->data[1 - color][numTotalRows - 1];
-          auto count = frag->getNumColorPointsInRow(endRowExcl, 1 - color);
-          MPI_Recv(row, count, MPI_DOUBLE, myRank + 1, MPI_ANY_TAG,
-                   MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+          MPI_Send(high, high_n, MPI_DOUBLE, myRank + 1, 0, MPI_COMM_WORLD);
+          MPI_Recv(high_extra, high_extra_n, MPI_DOUBLE, myRank + 1,
+                   MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
       } else {
         if (myRank + 1 < numProcesses) {
-          auto *row = frag->data[1 - color][numTotalRows - 1];
-          auto count = frag->getNumColorPointsInRow(endRowExcl, 1 - color);
-          MPI_Recv(row, count, MPI_DOUBLE, myRank + 1, MPI_ANY_TAG,
-                   MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+          MPI_Recv(high_extra, high_extra_n, MPI_DOUBLE, myRank + 1,
+                   MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+          MPI_Send(high, high_n, MPI_DOUBLE, myRank + 1, 0, MPI_COMM_WORLD);
         }
         if (myRank - 1 >= 0) {
-          auto *row = frag->data[1 - color][0];
-          auto count =
-              frag->getNumColorPointsInRow(startRowIncl - 1, 1 - color);
-          MPI_Send(row, count, MPI_DOUBLE, myRank - 1, 0, MPI_COMM_WORLD);
+          MPI_Recv(low_extra, low_extra_n, MPI_DOUBLE, myRank - 1, MPI_ANY_TAG,
+                   MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+          MPI_Send(low, low_n, MPI_DOUBLE, myRank - 1, 0, MPI_COMM_WORLD);
         }
       }
 
