@@ -1,4 +1,2 @@
 #!/usr/bin/sh
-git reset --hard
-git clean -xdf
 git pull
