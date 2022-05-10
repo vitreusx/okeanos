@@ -77,6 +77,7 @@ static std::tuple<int, double> performAlgorithm(int myRank, int numProcesses,
                                                 double omega, double epsilon) {
   int startRowIncl = frag->firstRowIdxIncl + (myRank == 0 ? 1 : 0);
   int endRowExcl = frag->lastRowIdxExcl - (myRank == numProcesses - 1 ? 1 : 0);
+  int numTotalRows = endRowExcl - startRowIncl + 2;
 
   double maxDiff = 0;
   int numIterations = 0;
@@ -90,29 +91,39 @@ static std::tuple<int, double> performAlgorithm(int myRank, int numProcesses,
     maxDiff = 0.0;
 
     for (int color = 0; color < 2; ++color) {
+      if (myRank % 2 == 0) {
+        if (myRank - 1 >= 0) {
+          auto *row = frag->data[1 - color][0];
+          auto count =
+              frag->getNumColorPointsInRow(startRowIncl - 1, 1 - color);
+          MPI_Send(row, count, MPI_DOUBLE, myRank - 1, MPI_ANY_TAG,
+                   MPI_COMM_WORLD);
+        }
+        if (myRank + 1 < numProcesses) {
+          auto *row = frag->data[1 - color][numTotalRows - 1];
+          auto count = frag->getNumColorPointsInRow(endRowExcl, 1 - color);
+          MPI_Recv(row, count, MPI_DOUBLE, myRank + 1, MPI_ANY_TAG,
+                   MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        }
+      } else {
+        if (myRank + 1 < numProcesses) {
+          auto *row = frag->data[1 - color][numTotalRows - 1];
+          auto count = frag->getNumColorPointsInRow(endRowExcl, 1 - color);
+          MPI_Send(row, count, MPI_DOUBLE, myRank + 1, MPI_ANY_TAG,
+                   MPI_COMM_WORLD);
+        }
+        if (myRank - 1 >= 0) {
+          auto *row = frag->data[1 - color][0];
+          auto count =
+              frag->getNumColorPointsInRow(startRowIncl - 1, 1 - color);
+          MPI_Send(row, count, MPI_DOUBLE, myRank - 1, MPI_ANY_TAG,
+                   MPI_COMM_WORLD);
+        }
+      }
+
       for (int rowIdx = startRowIncl; rowIdx < endRowExcl; ++rowIdx) {
         for (int colIdx = 1 + (rowIdx % 2 == color ? 1 : 0);
              colIdx < frag->gridDimension - 1; colIdx += 2) {
-          if (rowIdx == startRowIncl) {
-            if (myRank % 2 == 0) {
-              if (myRank + 1 < numProcesses)
-                MPI_Send(&GP(frag, endRowExcl - 1, colIdx), 1, MPI_DOUBLE,
-                         myRank + 1, 0, MPI_COMM_WORLD);
-              if (myRank - 1 >= 0)
-                MPI_Recv(&GP(frag, startRowIncl, colIdx), 1, MPI_DOUBLE,
-                         myRank - 1, MPI_ANY_TAG, MPI_COMM_WORLD,
-                         MPI_STATUS_IGNORE);
-            } else {
-              if (myRank - 1 >= 0)
-                MPI_Recv(&GP(frag, startRowIncl, colIdx), 1, MPI_DOUBLE,
-                         myRank - 1, MPI_ANY_TAG, MPI_COMM_WORLD,
-                         MPI_STATUS_IGNORE);
-              if (myRank + 1 < numProcesses)
-                MPI_Send(&GP(frag, endRowExcl - 1, colIdx), 1, MPI_DOUBLE,
-                         myRank + 1, 0, MPI_COMM_WORLD);
-            }
-          }
-
           double tmp =
               (GP(frag, rowIdx - 1, colIdx) + GP(frag, rowIdx + 1, colIdx) +
                GP(frag, rowIdx, colIdx - 1) + GP(frag, rowIdx, colIdx + 1)) /
