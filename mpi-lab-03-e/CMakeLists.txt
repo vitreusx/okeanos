@@ -24,6 +24,8 @@ add_executable(ring-nonblocking.exe
 add_executable(scatter-gather-max.exe
         scatter-gather-max.cpp)
 
-target_link_libraries(laplace-par.exe ${MPI_C_LIBRARIES})
-target_link_libraries(ring-nonblocking.exe ${MPI_C_LIBRARIES})
-target_link_libraries(scatter-gather-max.exe ${MPI_C_LIBRARIES})
+find_package(MPI REQUIRED)
+
+target_link_libraries(laplace-par.exe PRIVATE MPI::CXX)
+target_link_libraries(ring-nonblocking.exe PRIVATE MPI::CXX)
+target_link_libraries(scatter-gather-max.exe PRIVATE MPI::CXX)
