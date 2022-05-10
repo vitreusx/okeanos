@@ -96,8 +96,7 @@ static std::tuple<int, double> performAlgorithm(int myRank, int numProcesses,
           auto *row = frag->data[1 - color][0];
           auto count =
               frag->getNumColorPointsInRow(startRowIncl - 1, 1 - color);
-          MPI_Send(row, count, MPI_DOUBLE, myRank - 1, MPI_ANY_TAG,
-                   MPI_COMM_WORLD);
+          MPI_Send(row, count, MPI_DOUBLE, myRank - 1, 0, MPI_COMM_WORLD);
         }
         if (myRank + 1 < numProcesses) {
           auto *row = frag->data[1 - color][numTotalRows - 1];
@@ -116,8 +115,7 @@ static std::tuple<int, double> performAlgorithm(int myRank, int numProcesses,
           auto *row = frag->data[1 - color][0];
           auto count =
               frag->getNumColorPointsInRow(startRowIncl - 1, 1 - color);
-          MPI_Send(row, count, MPI_DOUBLE, myRank - 1, MPI_ANY_TAG,
-                   MPI_COMM_WORLD);
+          MPI_Send(row, count, MPI_DOUBLE, myRank - 1, 0, MPI_COMM_WORLD);
         }
       }
 
