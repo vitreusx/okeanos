@@ -109,8 +109,8 @@ static std::tuple<int, double> performAlgorithm(int myRank, int numProcesses,
         if (myRank + 1 < numProcesses) {
           auto *row = frag->data[1 - color][numTotalRows - 1];
           auto count = frag->getNumColorPointsInRow(endRowExcl, 1 - color);
-          MPI_Send(row, count, MPI_DOUBLE, myRank + 1, MPI_ANY_TAG,
-                   MPI_COMM_WORLD);
+          MPI_Recv(row, count, MPI_DOUBLE, myRank + 1, MPI_ANY_TAG,
+                   MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
         if (myRank - 1 >= 0) {
           auto *row = frag->data[1 - color][0];
