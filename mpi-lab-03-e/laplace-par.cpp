@@ -91,6 +91,8 @@ static std::tuple<int, double> performAlgorithm(int myRank, int numProcesses,
     maxDiff = 0.0;
 
     for (int color = 0; color < 2; ++color) {
+      printf(% d "%d\n", myRank, numIterations);
+
       auto *low_extra = frag->data[1 - color][0],
            *low = frag->data[1 - color][1],
            *high = frag->data[1 - color][numTotalRows - 2],
