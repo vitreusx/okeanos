@@ -13,6 +13,8 @@
 #include <vector>
 
 #define OPTION_VERBOSE "--verbose"
+#define ASYNC_COMM
+#define ALLREDUCE
 
 static void printUsage(char const *progName) {
   std::cerr
@@ -92,15 +94,17 @@ static std::tuple<int, double> performAlgorithm(int myRank, int numProcesses,
     maxDiff = 0.0;
 
     for (int color = 0; color < 2; ++color) {
-      auto *low_extra = frag->data[1 - color][0],
-           *low = frag->data[1 - color][1],
-           *high = frag->data[1 - color][numTotalRows - 2],
-           *high_extra = frag->data[1 - color][numTotalRows - 1];
+      int comm_color = 1 - color;
+
+      auto *low_extra = frag->data[comm_color][0],
+           *low = frag->data[comm_color][1],
+           *high = frag->data[comm_color][numTotalRows - 2],
+           *high_extra = frag->data[comm_color][numTotalRows - 1];
       auto low_extra_n =
-               frag->getNumColorPointsInRow(startRowIncl - 1, 1 - color),
-           low_n = frag->getNumColorPointsInRow(startRowIncl, 1 - color),
-           high_n = frag->getNumColorPointsInRow(endRowExcl - 1, 1 - color),
-           high_extra_n = frag->getNumColorPointsInRow(endRowExcl, 1 - color);
+               frag->getNumColorPointsInRow(startRowIncl - 1, comm_color),
+           low_n = frag->getNumColorPointsInRow(startRowIncl, comm_color),
+           high_n = frag->getNumColorPointsInRow(endRowExcl - 1, comm_color),
+           high_extra_n = frag->getNumColorPointsInRow(endRowExcl, comm_color);
 
       if (myRank % 2 == 0) {
         if (myRank - 1 >= 0) {
@@ -145,13 +149,161 @@ static std::tuple<int, double> performAlgorithm(int myRank, int numProcesses,
     }
 
     ++numIterations;
-
+#ifndef ALLREDUCE
     double globalMaxDiff = 0.0;
     for (int rank = 0; rank < numProcesses; ++rank) {
       double rankMaxDiff = maxDiff;
       MPI_Bcast(&rankMaxDiff, 1, MPI_DOUBLE, rank, MPI_COMM_WORLD);
       globalMaxDiff = std::max(globalMaxDiff, rankMaxDiff);
     }
+#else
+    double globalMaxDiff = 0.0;
+    MPI_Allreduce(&maxDiff, &globalMaxDiff, 1, MPI_DOUBLE, MPI_MAX,
+                  MPI_COMM_WORLD);
+#endif
+
+    if (globalMaxDiff <= epsilon)
+      break;
+  }
+
+  /* no code changes beyond this point should be needed */
+
+  return std::make_tuple(numIterations, maxDiff);
+}
+
+static std::tuple<int, double>
+performAlgorithmAsync(int myRank, int numProcesses, GridFragment *frag,
+                      double omega, double epsilon) {
+  int startRowIncl = frag->firstRowIdxIncl + (myRank == 0 ? 1 : 0);
+  int endRowExcl = frag->lastRowIdxExcl - (myRank == numProcesses - 1 ? 1 : 0);
+  int numTotalRows = frag->lastRowIdxExcl - frag->firstRowIdxIncl + 2;
+
+  double maxDiff = 0;
+  int numIterations = 0;
+
+  MPI_Request requests[4];
+
+  /* TODO: change the following code fragment */
+  /* Implement asynchronous communication of neighboring elements */
+  /* and computation of the grid */
+  /* the following code just recomputes the appropriate grid fragment */
+  /* but does not communicate the partial results */
+  while (true) {
+    maxDiff = 0.0;
+
+    for (int color = 0; color < 2; ++color) {
+      int comm_color = 1 - color;
+
+      auto *low_extra = frag->data[comm_color][0],
+           *low = frag->data[comm_color][1],
+           *high = frag->data[comm_color][numTotalRows - 2],
+           *high_extra = frag->data[comm_color][numTotalRows - 1];
+      auto low_extra_n =
+               frag->getNumColorPointsInRow(startRowIncl - 1, comm_color),
+           low_n = frag->getNumColorPointsInRow(startRowIncl, comm_color),
+           high_n = frag->getNumColorPointsInRow(endRowExcl - 1, comm_color),
+           high_extra_n = frag->getNumColorPointsInRow(endRowExcl, comm_color);
+
+      if (myRank % 2 == 0) {
+        if (myRank - 1 >= 0) {
+          MPI_Isend(low, low_n, MPI_DOUBLE, myRank - 1, 0, MPI_COMM_WORLD,
+                    &requests[0]);
+          MPI_Irecv(low_extra, low_extra_n, MPI_DOUBLE, myRank - 1, MPI_ANY_TAG,
+                    MPI_COMM_WORLD, &requests[1]);
+        }
+        if (myRank + 1 < numProcesses) {
+          MPI_Isend(high, high_n, MPI_DOUBLE, myRank + 1, 0, MPI_COMM_WORLD,
+                    &requests[2]);
+          MPI_Irecv(high_extra, high_extra_n, MPI_DOUBLE, myRank + 1,
+                    MPI_ANY_TAG, MPI_COMM_WORLD, &requests[3]);
+        }
+      } else {
+        if (myRank + 1 < numProcesses) {
+          MPI_Irecv(high_extra, high_extra_n, MPI_DOUBLE, myRank + 1,
+                    MPI_ANY_TAG, MPI_COMM_WORLD, &requests[0]);
+          MPI_Isend(high, high_n, MPI_DOUBLE, myRank + 1, 0, MPI_COMM_WORLD,
+                    &requests[1]);
+        }
+        if (myRank - 1 >= 0) {
+          MPI_Irecv(low_extra, low_extra_n, MPI_DOUBLE, myRank - 1, MPI_ANY_TAG,
+                    MPI_COMM_WORLD, &requests[2]);
+          MPI_Isend(low, low_n, MPI_DOUBLE, myRank - 1, 0, MPI_COMM_WORLD,
+                    &requests[3]);
+        }
+      }
+
+      for (int rowIdx = startRowIncl + 1; rowIdx < endRowExcl - 1; ++rowIdx) {
+        for (int colIdx = 1 + (rowIdx % 2 == color ? 1 : 0);
+             colIdx < frag->gridDimension - 1; colIdx += 2) {
+          double tmp =
+              (GP(frag, rowIdx - 1, colIdx) + GP(frag, rowIdx + 1, colIdx) +
+               GP(frag, rowIdx, colIdx - 1) + GP(frag, rowIdx, colIdx + 1)) /
+              4.0;
+          double diff = GP(frag, rowIdx, colIdx);
+          GP(frag, rowIdx, colIdx) = (1.0 - omega) * diff + omega * tmp;
+          diff = fabs(diff - GP(frag, rowIdx, colIdx));
+
+          if (diff > maxDiff) {
+            maxDiff = diff;
+          }
+        }
+      }
+
+      if (myRank % 2 == 0) {
+        if (myRank - 1 >= 0) {
+          MPI_Wait(&requests[0], MPI_STATUS_IGNORE);
+          MPI_Wait(&requests[1], MPI_STATUS_IGNORE);
+        }
+        if (myRank + 1 < numProcesses) {
+          MPI_Wait(&requests[2], MPI_STATUS_IGNORE);
+          MPI_Wait(&requests[3], MPI_STATUS_IGNORE);
+        }
+      } else {
+        if (myRank + 1 < numProcesses) {
+          MPI_Wait(&requests[0], MPI_STATUS_IGNORE);
+          MPI_Wait(&requests[1], MPI_STATUS_IGNORE);
+        }
+        if (myRank - 1 >= 0) {
+          MPI_Wait(&requests[2], MPI_STATUS_IGNORE);
+          MPI_Wait(&requests[3], MPI_STATUS_IGNORE);
+        }
+      }
+
+      for (int rowIdx : {startRowIncl, endRowExcl - 1}) {
+        for (int colIdx = 1 + (rowIdx % 2 == color ? 1 : 0);
+             colIdx < frag->gridDimension - 1; colIdx += 2) {
+          double tmp =
+              (GP(frag, rowIdx - 1, colIdx) + GP(frag, rowIdx + 1, colIdx) +
+               GP(frag, rowIdx, colIdx - 1) + GP(frag, rowIdx, colIdx + 1)) /
+              4.0;
+          double diff = GP(frag, rowIdx, colIdx);
+          GP(frag, rowIdx, colIdx) = (1.0 - omega) * diff + omega * tmp;
+          diff = fabs(diff - GP(frag, rowIdx, colIdx));
+
+          if (diff > maxDiff) {
+            maxDiff = diff;
+          }
+        }
+      }
+    }
+
+    ++numIterations;
+#ifndef ALLREDUCE
+    double globalMaxDiff = 0.0;
+    for (int rank = 0; rank < numProcesses; ++rank) {
+      double rankMaxDiff = maxDiff;
+      MPI_Bcast(&rankMaxDiff, 1, MPI_DOUBLE, rank, MPI_COMM_WORLD);
+      globalMaxDiff = std::max(globalMaxDiff, rankMaxDiff);
+    }
+#else
+    double globalMaxDiff = 0.0;
+    MPI_Allreduce(&maxDiff, &globalMaxDiff, 1, MPI_DOUBLE, MPI_MAX,
+                  MPI_COMM_WORLD);
+#endif
+
+#ifdef ASYNC_COMM
+
+#endif
 
     if (globalMaxDiff <= epsilon)
       break;
@@ -197,8 +349,13 @@ int main(int argc, char *argv[]) {
 
   /* Start of computations. */
 
+#ifdef ASYNC_COMM
+  auto result =
+      performAlgorithmAsync(myRank, numProcesses, gridFragment, omega, epsilon);
+#else
   auto result =
       performAlgorithm(myRank, numProcesses, gridFragment, omega, epsilon);
+#endif
 
   /* End of computations. */
 
