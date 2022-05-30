@@ -10,6 +10,7 @@
 #include <iostream>
 #include <mpi.h>
 #include <sys/time.h>
+#include <vector>
 
 #define OPTION_VERBOSE "--verbose"
 
@@ -77,7 +78,7 @@ static std::tuple<int, double> performAlgorithm(int myRank, int numProcesses,
                                                 double omega, double epsilon) {
   int startRowIncl = frag->firstRowIdxIncl + (myRank == 0 ? 1 : 0);
   int endRowExcl = frag->lastRowIdxExcl - (myRank == numProcesses - 1 ? 1 : 0);
-  int numTotalRows = endRowExcl - startRowIncl + 2;
+  int numTotalRows = frag->lastRowIdxExcl - frag->firstRowIdxIncl + 2;
 
   double maxDiff = 0;
   int numIterations = 0;
@@ -87,12 +88,10 @@ static std::tuple<int, double> performAlgorithm(int myRank, int numProcesses,
   /* and computation of the grid */
   /* the following code just recomputes the appropriate grid fragment */
   /* but does not communicate the partial results */
-  do {
+  while (true) {
     maxDiff = 0.0;
 
     for (int color = 0; color < 2; ++color) {
-      printf(% d "%d\n", myRank, numIterations);
-
       auto *low_extra = frag->data[1 - color][0],
            *low = frag->data[1 - color][1],
            *high = frag->data[1 - color][numTotalRows - 2],
@@ -147,12 +146,16 @@ static std::tuple<int, double> performAlgorithm(int myRank, int numProcesses,
 
     ++numIterations;
 
+    double globalMaxDiff = 0.0;
     for (int rank = 0; rank < numProcesses; ++rank) {
       double rankMaxDiff = maxDiff;
       MPI_Bcast(&rankMaxDiff, 1, MPI_DOUBLE, rank, MPI_COMM_WORLD);
-      maxDiff = std::max(maxDiff, rankMaxDiff);
+      globalMaxDiff = std::max(globalMaxDiff, rankMaxDiff);
     }
-  } while (maxDiff > epsilon);
+
+    if (globalMaxDiff <= epsilon)
+      break;
+  }
 
   /* no code changes beyond this point should be needed */
 

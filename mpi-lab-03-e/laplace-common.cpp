@@ -3,12 +3,11 @@
  * Copyright (C) 2016, Konrad Iwanicki.
  * Refactoring 2019, Łukasz Rączkowski
  */
-
-#import "laplace-common.h"
-#import <cassert>
+#include "laplace-common.h"
+#include <cassert>
 #include <iomanip>
-#import <iostream>
-#import <mpi.h>
+#include <iostream>
+#include <mpi.h>
 
 #define LAPLACE_I0 1.56
 #define LAPLACE_IN 10.85
