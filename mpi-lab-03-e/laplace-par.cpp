@@ -13,8 +13,8 @@
 #include <vector>
 
 #define OPTION_VERBOSE "--verbose"
-#define ASYNC_COMM
-#define ALLREDUCE
+
+bool ALLREDUCE = false;
 
 static void printUsage(char const *progName) {
   std::cerr
@@ -149,18 +149,18 @@ static std::tuple<int, double> performAlgorithm(int myRank, int numProcesses,
     }
 
     ++numIterations;
-#ifndef ALLREDUCE
     double globalMaxDiff = 0.0;
-    for (int rank = 0; rank < numProcesses; ++rank) {
-      double rankMaxDiff = maxDiff;
-      MPI_Bcast(&rankMaxDiff, 1, MPI_DOUBLE, rank, MPI_COMM_WORLD);
-      globalMaxDiff = std::max(globalMaxDiff, rankMaxDiff);
+    if (ALLREDUCE) {
+      MPI_Allreduce(&maxDiff, &globalMaxDiff, 1, MPI_DOUBLE, MPI_MAX,
+                    MPI_COMM_WORLD);
+    } else {
+
+      for (int rank = 0; rank < numProcesses; ++rank) {
+        double rankMaxDiff = maxDiff;
+        MPI_Bcast(&rankMaxDiff, 1, MPI_DOUBLE, rank, MPI_COMM_WORLD);
+        globalMaxDiff = std::max(globalMaxDiff, rankMaxDiff);
+      }
     }
-#else
-    double globalMaxDiff = 0.0;
-    MPI_Allreduce(&maxDiff, &globalMaxDiff, 1, MPI_DOUBLE, MPI_MAX,
-                  MPI_COMM_WORLD);
-#endif
 
     if (globalMaxDiff <= epsilon)
       break;
@@ -288,22 +288,17 @@ performAlgorithmAsync(int myRank, int numProcesses, GridFragment *frag,
     }
 
     ++numIterations;
-#ifndef ALLREDUCE
     double globalMaxDiff = 0.0;
-    for (int rank = 0; rank < numProcesses; ++rank) {
-      double rankMaxDiff = maxDiff;
-      MPI_Bcast(&rankMaxDiff, 1, MPI_DOUBLE, rank, MPI_COMM_WORLD);
-      globalMaxDiff = std::max(globalMaxDiff, rankMaxDiff);
+    if (ALLREDUCE) {
+      MPI_Allreduce(&maxDiff, &globalMaxDiff, 1, MPI_DOUBLE, MPI_MAX,
+                    MPI_COMM_WORLD);
+    } else {
+      for (int rank = 0; rank < numProcesses; ++rank) {
+        double rankMaxDiff = maxDiff;
+        MPI_Bcast(&rankMaxDiff, 1, MPI_DOUBLE, rank, MPI_COMM_WORLD);
+        globalMaxDiff = std::max(globalMaxDiff, rankMaxDiff);
+      }
     }
-#else
-    double globalMaxDiff = 0.0;
-    MPI_Allreduce(&maxDiff, &globalMaxDiff, 1, MPI_DOUBLE, MPI_MAX,
-                  MPI_COMM_WORLD);
-#endif
-
-#ifdef ASYNC_COMM
-
-#endif
 
     if (globalMaxDiff <= epsilon)
       break;
@@ -348,14 +343,17 @@ int main(int argc, char *argv[]) {
   }
 
   /* Start of computations. */
+  ALLREDUCE = getenv("ALLREDUCE");
+  bool ASYNC_COMM = getenv("ASYNC_COMM");
 
-#ifdef ASYNC_COMM
-  auto result =
-      performAlgorithmAsync(myRank, numProcesses, gridFragment, omega, epsilon);
-#else
-  auto result =
-      performAlgorithm(myRank, numProcesses, gridFragment, omega, epsilon);
-#endif
+  std::tuple<int, double> result;
+  if (ASYNC_COMM) {
+    result = performAlgorithmAsync(myRank, numProcesses, gridFragment, omega,
+                                   epsilon);
+  } else {
+    result =
+        performAlgorithm(myRank, numProcesses, gridFragment, omega, epsilon);
+  }
 
   /* End of computations. */
 
